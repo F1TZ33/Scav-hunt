@@ -45,6 +45,22 @@ textarea, input {
   font-size: 24px;
   z-index: 1000;
 }
+
+/* PRINT STYLES */
+.print-clues li {
+  margin-bottom: 30px;
+}
+.answer-line {
+  border-bottom: 2px solid #000;
+  height: 24px;
+  margin-bottom: 12px;
+}
+.comment-box {
+  border: 1px solid #000;
+  height: 60px;
+  margin-bottom: 20px;
+}
+
 @media print {
   button { display: none; }
   body { background: white; }
@@ -56,6 +72,8 @@ textarea, input {
 
 <div class="card" id="app"></div>
 <div class="overlay" id="overlay">❌ Wrong Keyword! Try Again...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <script>
 /* ================= UTIL ================= */
@@ -82,9 +100,9 @@ const DEFAULT_HUNTS = {
       { clue: "I’m soft, I’m comfy, and I steal naps. People sit on me 'just for a minute'.", keyword: "couch" },
       { clue: "I light up the dark but disappear by day. Flip me on.", keyword: "lamp" },
       { clue: "I’m full of secrets, but I don’t talk. You knock before opening me.", keyword: "bedroom door" },
-      { clue: "You cracked every lock! The final key is hidden where treasures are kept safe. Your Colour is RED", keyword: "red" }
+      { clue: "You cracked every lock! Your Colour is RED", keyword: "red" }
     ],
-    finish: "🎉 Congratulations! You escaped the house. Your ribbon colour is RED."
+    finish: "🎉 Congratulations! Your ribbon colour is RED."
   },
 
   fortnite: {
@@ -103,9 +121,9 @@ const DEFAULT_HUNTS = {
       { clue: "High ground wins games. Go where you can see the whole room.", keyword: "stairs" },
       { clue: "Final circle. Only one remains. Where battles are watched, not played.", keyword: "tv" },
       { clue: "One last challenge… Look where snacks disappear during long sessions.", keyword: "pantry" },
-      { clue: "VICTORY ROYALE 🏆 Claim your reward where legends are made. Your colour is SILVER", keyword: "silver" }
+      { clue: "VICTORY ROYALE 🏆 Your colour is SILVER", keyword: "silver" }
     ],
-    finish: "🏆 Victory Royale! You completed the Fortnite hunt. Your ribbon colour is SILVER."
+    finish: "🏆 Victory Royale! Your ribbon colour is SILVER."
   },
 
   hacker: {
@@ -127,9 +145,9 @@ const DEFAULT_HUNTS = {
       { clue: "SYSTEM LOG Tracks everything that happens over time.", keyword: "clock" },
       { clue: "USER PROFILE Where the operator rests.", keyword: "bed" },
       { clue: "FINAL ACCESS NODE Only the admin reaches this point.", keyword: "desk" },
-      { clue: "ROOT ACCESS GRANTED SYSTEM BREACHED Retrieve payload from secure location. Your colour is GREEN", keyword: "green" }
+      { clue: "ROOT ACCESS GRANTED Your colour is GREEN", keyword: "green" }
     ],
-    finish: "🟢 ACCESS GRANTED. System breached successfully. Your ribbon colour is GREEN."
+    finish: "🟢 ACCESS GRANTED. Your ribbon colour is GREEN."
   }
 
 };
@@ -242,16 +260,42 @@ function duplicateHunt(key){
 /* ================= PRINT ================= */
 function printHunt(k){
   const h=HUNTS[k];
-  app.innerHTML=`
-    <h2>${h.name}</h2>
+  const startURL = location.origin + location.pathname + `?play=${k}&s=0`;
+
+  app.innerHTML = `
+    <h1>${h.name}</h1>
     <p>${h.intro}</p>
-    <ol>${h.clues.map(c=>`<li>${c.clue}</li>`).join("")}</ol>
-    <p>${h.finish}</p>
-    <p><strong>Start URL:</strong><br>
-    ${location.origin + location.pathname}?play=${k}&s=0</p>
+
+    <div id="qrcode" style="margin:20px 0;"></div>
+
+    <hr>
+
+    <ol class="print-clues">
+      ${h.clues.map(c=>`
+        <li>
+          <p><strong>${c.clue}</strong></p>
+          <p>Answer:</p>
+          <div class="answer-line"></div>
+          <p>Notes:</p>
+          <div class="comment-box"></div>
+        </li>
+      `).join("")}
+    </ol>
+
+    <p><strong>Finish Message:</strong><br>${h.finish}</p>
+
     <button onclick="window.print()">🖨️ Print</button>
     <button onclick="home()">⬅ Back</button>
   `;
+
+  QRCode.toCanvas(
+    document.createElement("canvas"),
+    startURL,
+    { width: 180 },
+    function (err, canvas) {
+      if (!err) document.getElementById("qrcode").appendChild(canvas);
+    }
+  );
 }
 
 /* ================= PLAY ================= */
