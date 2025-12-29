@@ -60,8 +60,6 @@ textarea, input {
 <script>
 /* ================= UTIL ================= */
 function uid(){ return Math.random().toString(36).slice(2,9); }
-
-// NEW: formatted timestamp
 function timestamp(){
   const d = new Date();
   return d.toISOString().slice(0,16).replace("T"," ");
@@ -69,10 +67,11 @@ function timestamp(){
 
 /* ================= DEFAULT HUNTS ================= */
 const DEFAULT_HUNTS = {
+
   escape: {
     name: "Escape the House",
+    locked: false,
     intro: "Welcome! Your escape challenge begins now 🏠",
-    locked: false, // NEW
     clues: [
       { clue: "I show your face but I’m not a photo. I hang on walls and doors. Where am I?", keyword: "mirror" },
       { clue: "I have pages but no homework. I’m quiet unless you drop me. I live where stories sleep.", keyword: "bookshelf" },
@@ -83,10 +82,56 @@ const DEFAULT_HUNTS = {
       { clue: "I’m soft, I’m comfy, and I steal naps. People sit on me 'just for a minute'.", keyword: "couch" },
       { clue: "I light up the dark but disappear by day. Flip me on.", keyword: "lamp" },
       { clue: "I’m full of secrets, but I don’t talk. You knock before opening me.", keyword: "bedroom door" },
-      { clue: "You cracked every lock! Your colour is RED", keyword: "red" }
+      { clue: "You cracked every lock! The final key is hidden where treasures are kept safe. Your Colour is RED", keyword: "red" }
     ],
-    finish: "🎉 Congratulations! Ribbon colour: RED."
+    finish: "🎉 Congratulations! You escaped the house. Your ribbon colour is RED."
+  },
+
+  fortnite: {
+    name: "Fortnite IRL",
+    locked: false,
+    intro: "You’ve dropped in. Loot up, survive the storm, and claim the Victory Royale 🏆",
+    clues: [
+      { clue: "You’ve dropped in. First loot location: Where controllers go when the game is off.", keyword: "gaming desk" },
+      { clue: "Shields up! Find the place where drinks recharge HP.", keyword: "fridge" },
+      { clue: "Storm incoming 🌪️ Where do shoes hide when the storm hits outside?", keyword: "entrance" },
+      { clue: "You need mats. Wood, brick, metal… Find where tools live.", keyword: "garage" },
+      { clue: "Campfire deployed 🔥 Where the family gathers to chill.", keyword: "lounge room" },
+      { clue: "Inventory check. You can’t win without sleep.", keyword: "bed" },
+      { clue: "Chest nearby… I hear it. Where secrets are stored behind closed doors.", keyword: "wardrobe" },
+      { clue: "Reboot van activated ⚡ Where devices come back to life.", keyword: "phone charger" },
+      { clue: "High ground wins games. Go where you can see the whole room.", keyword: "stairs" },
+      { clue: "Final circle. Only one remains. Where battles are watched, not played.", keyword: "tv" },
+      { clue: "One last challenge… Look where snacks disappear during long sessions.", keyword: "pantry" },
+      { clue: "VICTORY ROYALE 🏆 Claim your reward where legends are made. Your colour is SILVER", keyword: "silver" }
+    ],
+    finish: "🏆 Victory Royale! You completed the Fortnite hunt. Your ribbon colour is SILVER."
+  },
+
+  hacker: {
+    name: "System Breach",
+    locked: false,
+    intro: "SYSTEM ONLINE 🔓 Initiate breach sequence.",
+    clues: [
+      { clue: "SYSTEM ONLINE Begin at the device that controls all others.", keyword: "router" },
+      { clue: "AUTHENTICATION REQUIRED Find where passwords are written but never stored digitally.", keyword: "notebook" },
+      { clue: "DATA COLD STORAGE Files preserved at low temperature.", keyword: "fridge" },
+      { clue: "INPUT DEVICE DETECTED Where commands are typed, not spoken.", keyword: "keyboard" },
+      { clue: "PERIPHERAL FOUND One click can change everything.", keyword: "mouse" },
+      { clue: "POWER SOURCE Without this, the system fails.", keyword: "power board" },
+      { clue: "CACHE CLEARED Where clothes are reset to default state.", keyword: "laundry" },
+      { clue: "BACKUP LOCATION Where items are stored 'just in case'.", keyword: "garage" },
+      { clue: "DISPLAY OUTPUT Pixels form reality here.", keyword: "monitor" },
+      { clue: "SECURITY CHECKPOINT Entry requires permission.", keyword: "door" },
+      { clue: "ENCRYPTED STORAGE Locked, hidden, not obvious.", keyword: "drawer" },
+      { clue: "SYSTEM LOG Tracks everything that happens over time.", keyword: "clock" },
+      { clue: "USER PROFILE Where the operator rests.", keyword: "bed" },
+      { clue: "FINAL ACCESS NODE Only the admin reaches this point.", keyword: "desk" },
+      { clue: "ROOT ACCESS GRANTED SYSTEM BREACHED Retrieve payload from secure location. Your colour is GREEN", keyword: "green" }
+    ],
+    finish: "🟢 ACCESS GRANTED. System breached successfully. Your ribbon colour is GREEN."
   }
+
 };
 
 /* ================= STORAGE ================= */
@@ -102,11 +147,11 @@ const overlay = document.getElementById("overlay");
 if (q.get("play")) play();
 else if (q.get("print")) printHunt(q.get("print"));
 else if (q.get("edit")) editHunt(q.get("edit"));
-else if (q.get("duplicate")) duplicateHunt(q.get("duplicate")); // NEW
+else if (q.get("duplicate")) duplicateHunt(q.get("duplicate"));
 else if (q.get("new")) createHunt();
 else home();
 
-/* ================= HOME (ADMIN) ================= */
+/* ================= HOME ================= */
 function home(){
   app.innerHTML = `
     <h1>Scavenger Hunt Admin</h1>
@@ -117,8 +162,8 @@ function home(){
         <button onclick="location='?print=${k}'">🖨️ Print Instructions</button>
         ${
           h.locked
-          ? `<button onclick="location='?duplicate=${k}'">📄 Duplicate</button>`
-          : `<button onclick="location='?edit=${k}'">✏ Edit</button>`
+            ? `<button onclick="location='?duplicate=${k}'">📄 Duplicate</button>`
+            : `<button onclick="location='?edit=${k}'">✏ Edit</button>`
         }
       </div>
     `).join("")}
@@ -182,16 +227,14 @@ function saveHunt(key){
 
 /* ================= DUPLICATE ================= */
 function duplicateHunt(key){
-  const original = HUNTS[key];
-  const copyKey = uid();
-
-  userHunts[copyKey] = JSON.parse(JSON.stringify({
-    ...original,
-    name: `${original.name} (Copy ${timestamp()})`,
-    locked: false
+  const o=HUNTS[key];
+  const nk=uid();
+  userHunts[nk]=JSON.parse(JSON.stringify({
+    ...o,
+    name:`${o.name} (Copy ${timestamp()})`,
+    locked:false
   }));
-
-  HUNTS[copyKey] = userHunts[copyKey];
+  HUNTS[nk]=userHunts[nk];
   save();
   home();
 }
