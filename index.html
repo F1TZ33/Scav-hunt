@@ -61,11 +61,18 @@ textarea, input {
 /* ================= UTIL ================= */
 function uid(){ return Math.random().toString(36).slice(2,9); }
 
-/* ================= HUNTS ================= */
-const HUNTS = {
+// NEW: formatted timestamp
+function timestamp(){
+  const d = new Date();
+  return d.toISOString().slice(0,16).replace("T"," ");
+}
+
+/* ================= DEFAULT HUNTS ================= */
+const DEFAULT_HUNTS = {
   escape: {
     name: "Escape the House",
     intro: "Welcome! Your escape challenge begins now 🏠",
+    locked: false, // NEW
     clues: [
       { clue: "I show your face but I’m not a photo. I hang on walls and doors. Where am I?", keyword: "mirror" },
       { clue: "I have pages but no homework. I’m quiet unless you drop me. I live where stories sleep.", keyword: "bookshelf" },
@@ -79,51 +86,13 @@ const HUNTS = {
       { clue: "You cracked every lock! Your colour is RED", keyword: "red" }
     ],
     finish: "🎉 Congratulations! Ribbon colour: RED."
-  },
-
-  fortnite: {
-    name: "Fortnite IRL",
-    intro: "You’ve dropped in. Loot up and survive the storm!",
-    clues: [
-      { clue: "First loot location: Where controllers go when the game is off.", keyword: "gaming desk" },
-      { clue: "Shields up! Where drinks recharge HP.", keyword: "fridge" },
-      { clue: "Storm incoming 🌪️ Where do shoes hide?", keyword: "entrance" },
-      { clue: "You need mats. Find where tools live.", keyword: "garage" },
-      { clue: "Campfire deployed 🔥 Where the family gathers.", keyword: "lounge room" },
-      { clue: "Inventory check. You can’t win without sleep.", keyword: "bed" },
-      { clue: "Chest nearby… Where secrets are stored.", keyword: "wardrobe" },
-      { clue: "Reboot van ⚡ Where devices charge.", keyword: "phone charger" },
-      { clue: "High ground wins games.", keyword: "stairs" },
-      { clue: "Final circle. Battles are watched, not played.", keyword: "tv" },
-      { clue: "Snacks disappear here.", keyword: "pantry" },
-      { clue: "VICTORY ROYALE 🏆 Your colour is SILVER", keyword: "silver" }
-    ],
-    finish: "🏆 Victory Royale! Ribbon colour: SILVER."
-  },
-
-  hacker: {
-    name: "System Breach",
-    intro: "SYSTEM ONLINE 🔓 Initiate breach sequence.",
-    clues: [
-      { clue: "Begin at the device that controls all others.", keyword: "router" },
-      { clue: "Passwords written, not digital.", keyword: "notebook" },
-      { clue: "Data cold storage.", keyword: "fridge" },
-      { clue: "Commands typed, not spoken.", keyword: "keyboard" },
-      { clue: "One click changes everything.", keyword: "mouse" },
-      { clue: "Without this, the system fails.", keyword: "power board" },
-      { clue: "Clothes reset to default.", keyword: "laundry" },
-      { clue: "Backup location.", keyword: "garage" },
-      { clue: "Pixels form reality.", keyword: "monitor" },
-      { clue: "Entry requires permission.", keyword: "door" },
-      { clue: "Locked, hidden storage.", keyword: "drawer" },
-      { clue: "Tracks everything over time.", keyword: "clock" },
-      { clue: "Operator rest location.", keyword: "bed" },
-      { clue: "Final access node.", keyword: "desk" },
-      { clue: "ROOT ACCESS GRANTED. Your colour is GREEN", keyword: "green" }
-    ],
-    finish: "🟢 ACCESS GRANTED. Ribbon colour: GREEN."
   }
 };
+
+/* ================= STORAGE ================= */
+let userHunts = JSON.parse(localStorage.getItem("userHunts") || "{}");
+let HUNTS = { ...DEFAULT_HUNTS, ...userHunts };
+function save(){ localStorage.setItem("userHunts", JSON.stringify(userHunts)); }
 
 const q = new URLSearchParams(location.search);
 const app = document.getElementById("app");
@@ -133,69 +102,116 @@ const overlay = document.getElementById("overlay");
 if (q.get("play")) play();
 else if (q.get("print")) printHunt(q.get("print"));
 else if (q.get("edit")) editHunt(q.get("edit"));
+else if (q.get("duplicate")) duplicateHunt(q.get("duplicate")); // NEW
+else if (q.get("new")) createHunt();
 else home();
 
-/* ================= HOME (ADMIN ONLY) ================= */
+/* ================= HOME (ADMIN) ================= */
 function home(){
   app.innerHTML = `
     <h1>Scavenger Hunt Admin</h1>
+    <button onclick="location='?new=1'">➕ Create New Hunt</button>
     ${Object.entries(HUNTS).map(([k,h])=>`
       <div class="hunt">
-        <h3>${h.name}</h3>
+        <h3>${h.name}${h.locked ? " 🔒" : ""}</h3>
         <button onclick="location='?print=${k}'">🖨️ Print Instructions</button>
-        <button onclick="location='?edit=${k}'">✏ Edit</button>
+        ${
+          h.locked
+          ? `<button onclick="location='?duplicate=${k}'">📄 Duplicate</button>`
+          : `<button onclick="location='?edit=${k}'">✏ Edit</button>`
+        }
       </div>
     `).join("")}
   `;
 }
 
+/* ================= CREATE / EDIT ================= */
+function createHunt(key){
+  const h = key ? HUNTS[key] : { name:"", intro:"", clues:[], finish:"", locked:false };
+  app.innerHTML = `
+    <h2>${key ? "Edit" : "Create"} Hunt</h2>
+    <input id="name" placeholder="Hunt name" value="${h.name}">
+    <textarea id="intro" placeholder="Intro">${h.intro}</textarea>
+    <div id="clues"></div>
+    <button onclick="addClue()">➕ Add Clue</button>
+    <textarea id="finish" placeholder="Finish">${h.finish}</textarea>
+    <button onclick="saveHunt('${key||""}')">💾 Save</button>
+    <button onclick="home()">Cancel</button>
+  `;
+  h.clues.forEach(c=>addClue(c.clue,c.keyword));
+}
+
+function editHunt(key){
+  if(HUNTS[key].locked){
+    alert("This hunt is locked. Duplicate it to make changes.");
+    return;
+  }
+  createHunt(key);
+}
+
+function addClue(clue="",keyword=""){
+  const d=document.createElement("div");
+  d.className="clue-item";
+  d.innerHTML=`
+    <textarea placeholder="Clue">${clue}</textarea>
+    <input placeholder="Keyword" value="${keyword}">
+  `;
+  document.getElementById("clues").appendChild(d);
+}
+
+function saveHunt(key){
+  const name=document.getElementById("name").value.trim();
+  const intro=document.getElementById("intro").value.trim();
+  const finish=document.getElementById("finish").value.trim();
+  const clues=[...document.querySelectorAll(".clue-item")].map(d=>({
+    clue:d.querySelector("textarea").value.trim(),
+    keyword:d.querySelector("input").value.trim().toLowerCase()
+  })).filter(c=>c.clue&&c.keyword);
+
+  if(!name||!intro||!finish||!clues.length){
+    alert("All fields required");
+    return;
+  }
+
+  if(!key) key=uid();
+  userHunts[key]={name,intro,clues,finish,locked:false};
+  HUNTS[key]=userHunts[key];
+  save();
+  home();
+}
+
+/* ================= DUPLICATE ================= */
+function duplicateHunt(key){
+  const original = HUNTS[key];
+  const copyKey = uid();
+
+  userHunts[copyKey] = JSON.parse(JSON.stringify({
+    ...original,
+    name: `${original.name} (Copy ${timestamp()})`,
+    locked: false
+  }));
+
+  HUNTS[copyKey] = userHunts[copyKey];
+  save();
+  home();
+}
+
 /* ================= PRINT ================= */
 function printHunt(k){
-  const h = HUNTS[k];
-  app.innerHTML = `
+  const h=HUNTS[k];
+  app.innerHTML=`
     <h2>${h.name}</h2>
     <p>${h.intro}</p>
     <ol>${h.clues.map(c=>`<li>${c.clue}</li>`).join("")}</ol>
     <p>${h.finish}</p>
-    <p><strong>Start URL (QR code target):</strong><br>
+    <p><strong>Start URL:</strong><br>
     ${location.origin + location.pathname}?play=${k}&s=0</p>
     <button onclick="window.print()">🖨️ Print</button>
     <button onclick="home()">⬅ Back</button>
   `;
 }
 
-/* ================= EDIT ================= */
-function editHunt(k){
-  const h = HUNTS[k];
-  app.innerHTML = `
-    <h2>Edit ${h.name}</h2>
-    <textarea id="intro">${h.intro}</textarea>
-    <div id="clues"></div>
-    <textarea id="finish">${h.finish}</textarea>
-    <button onclick="saveHunt('${k}')">💾 Save</button>
-    <button onclick="home()">Cancel</button>
-  `;
-  h.clues.forEach(c=>addClue(c.clue,c.keyword));
-}
-
-function addClue(clue="",keyword=""){
-  const d=document.createElement("div");
-  d.innerHTML=`<textarea>${clue}</textarea><input value="${keyword}">`;
-  document.getElementById("clues").appendChild(d);
-}
-
-function saveHunt(k){
-  const intro=document.getElementById("intro").value.trim();
-  const finish=document.getElementById("finish").value.trim();
-  const clues=[...document.querySelectorAll("#clues div")].map(d=>({
-    clue:d.children[0].value.trim(),
-    keyword:d.children[1].value.trim().toLowerCase()
-  })).filter(c=>c.clue&&c.keyword);
-  HUNTS[k]={...HUNTS[k],intro,clues,finish};
-  home();
-}
-
-/* ================= PLAY (QR ONLY) ================= */
+/* ================= PLAY ================= */
 function play(){
   const h=HUNTS[q.get("play")];
   const step=parseInt(q.get("s")||0);
